@@ -1,0 +1,3 @@
+Transcriptome of the Caribbean stony coral Porites astreoides from three developmental stages
+=============================================================================================
+The coral Porites astreoides is a ubiquitous species on modern Caribbean reefs, yet it is threatened by increasing temperatures, overfishing, and other anthropogenic impacts. Using sequences from the Illumina platform, we have assembled and annotated a transcriptome from this coral using three different developmental stages collected over several years: free-swimming larvae, newly-settled larvae, and adults (>10 cm in diameter). This resource will aid in the understanding of coral calcification, larval settlement, and host-symbiont interactions.
