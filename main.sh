@@ -201,6 +201,9 @@ module load QIIME/1.8.0
 filter_fasta.py --input_fasta_fp $trinity_transcriptome --output_fasta_fp Trinity.clean.201.exp.fasta --seq_id_fp $p_asteroides/c_abundFilter/unexp_isoformTPM --negate
 exp_transcriptome=$seqclean_dir/Trinity.clean.201.exp.fasta        ## 868905
 echo $(($(grep "^>" Trinity.fasta.clean.201 | wc -l) - $(grep "^>" Trinity.clean.201.exp.fasta | wc -l))) ## 11380
+
+tail -n+2 $p_asteroides/c_abundFilter/unexp_isoformTPM | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs | sed 's/>//' > LongOrfs.key
+filter_fasta.py --input_fasta_fp $LongOrfs --output_fasta_fp $LongOrfs.exp --seq_id_fp LongOrfs.key --negate
 ###################
 ## transfer the annotation to the fasta files
 ## the structure of UniprotKB header (stitle in Blast): http://www.uniprot.org/help/fasta-headers
@@ -318,6 +321,10 @@ cat prefix_cut.fa.fixed >> $univec_ann_exp_tran
 cd $seqclean_dir
 while read line;do echo $line | sed 's/|/_/'; done < uniprot_sprot.blastx.outfmt6.sig.best.exp > uniprot_sprot.blastx.outfmt6.sig.best.exp2
 grep -v -w -F -f $p_asteroides/UniVec/excludeIDs uniprot_sprot.blastx.outfmt6.sig.best.exp2 >  uniprot_sprot.blastx.outfmt6.sig.best.exp2.univec    ## 204110
+
+sed 's/TR\([0-9]*\)|c\([0-9]*\)_g/TR\1_c\2_g/g' $LongOrfs.exp > $LongOrfs.exp2
+cat $p_asteroides/UniVec/excludeIDs | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs.exp2 | sed 's/>//' > LongOrfs.exp2.key
+filter_fasta.py --input_fasta_fp $LongOrfs.exp2 --output_fasta_fp $LongOrfs.exp2.univec --seq_id_fp LongOrfs.exp2.key --negate
 ##################
 ## Assessement of the transcriptome
 cd $seqclean_dir
@@ -332,16 +339,12 @@ TrinityStats.pl $exp_transcriptome > $exp_transcriptome.TrinityStat
 TrinityStats.pl $univec_ann_exp_tran > $univec_ann_exp_tran.TrinityStat
 
 ## calc the the no of Complete ORFs
-grep "type:complete" $LongOrfs | wc -l  ##225219
-grep -A1 "type:complete" $LongOrfs | grep -v "^--" > $LongOrfs.complete ## 225219
-grep "^>" $LongOrfs.complete | awk -F '[>|]' '{print $2"|"$3}' | sort | uniq | wc -l ## 124271
-while read ID;do echo $ID | sed 's/_/|/'; done < $p_asteroides/UniVec/excludeIDs > $p_asteroides/UniVec/excludeIDs_orig
-while read gene;do grep $gene"|" $LongOrfs; done < <(cat $seqclean_dir/unexpIDs $p_asteroides/UniVec/excludeIDs_orig | sort |uniq) > $LongOrfs.exclude
-grep "type:complete" $LongOrfs.exclude | wc -l ## 810
-grep "type:complete" $LongOrfs.exclude > $LongOrfs.exclude.complete ## 810
-grep "^>" $LongOrfs.exclude.complete | awk -F '[>|]' '{print $2"|"$3}' | sort | uniq | wc -l ## 449
-## Total no of complte ORFs (one transcript may have many ORFs): 225219 - 810 = 224409
-## no of uniqe transcripts with complete ORFS: 124271 - 449 = 123822
+#grep "type:complete" $LongOrfs | wc -l  ##225219
+#grep -A1 "type:complete" $LongOrfs | grep -v "^--" > $LongOrfs.complete ## 225219
+#grep "^>" $LongOrfs.complete | awk -F '[>|]' '{print $2"|"$3}' | sort | uniq | wc -l ## 124271
+grep "type:complete" $LongOrfs.exp2.univec | wc -l  ##223844
+grep -A1 "type:complete" $LongOrfs.exp2.univec | grep -v "^--" > $LongOrfs.exp2.univec.complete ## 223844
+grep "^>" $LongOrfs.exp2.univec.complete | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 123425
 
 ## instaling and running assemblathon2
 #cd ${script_path}
