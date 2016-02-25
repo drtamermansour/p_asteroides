@@ -57,8 +57,8 @@ qsub -v input=$"countgraph_k20.kt",files="${input_files[*]}" ${script_path}/filt
 #filter-abund.py -V $input $files
 mkdir trimmedData
 mv *.s_[ps]e.fq trimmedData/.
-for f in filter_abund.e*; do grep -B 2 "^output in" $f >> filter_abund.summary; done
-## break out the orphaned and still-paired reads & rename files (this step ends with .s_pe.fq & .s_se.fq for each sample)
+for f in filter_abund.e*;do grep -B2 "^output in" $f;done > filter_abund.summary
+## break out the orphaned and still-paired reads and rename files (this step ends with .s_pe.fq and .s_se.fq for each sample)
 #for i in *.s_pe.*.abundfilt; do extract-paired-reads.py $i; done
 for i in *.s_pe.*.abundfilt; do qsub -v input=$i $script_path/extract-paired-reads.sh; done
 ##  combine the orphaned reads into a single file & rename pe files
