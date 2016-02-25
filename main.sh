@@ -315,9 +315,9 @@ cat prefix_cut.fa.fixed >> $univec_ann_exp_tran
 ## trimmed 1106 & excluded 75 from 868905 ==> 868830
 
 ## exclude the univec transcripts from the annoatation files
-while read ID;do echo $ID | sed 's/_/|/'; done < excludeIDs > excludeIDs_orig
 cd $seqclean_dir
-grep -v -w -F -f $p_asteroides/UniVec/excludeIDs_orig uniprot_sprot.blastx.outfmt6.sig.best.exp >  uniprot_sprot.blastx.outfmt6.sig.best.exp.univec                      ## 204110
+while read line;do echo $line | sed 's/|/_/'; done < uniprot_sprot.blastx.outfmt6.sig.best.exp > uniprot_sprot.blastx.outfmt6.sig.best.exp2
+grep -v -w -F -f $p_asteroides/UniVec/excludeIDs uniprot_sprot.blastx.outfmt6.sig.best.exp2 >  uniprot_sprot.blastx.outfmt6.sig.best.exp2.univec    ## 204110
 ##################
 ## Assessement of the transcriptome
 cd $seqclean_dir
@@ -335,6 +335,7 @@ TrinityStats.pl $univec_ann_exp_tran > $univec_ann_exp_tran.TrinityStat
 grep "type:complete" $LongOrfs | wc -l  ##225219
 grep -A1 "type:complete" $LongOrfs | grep -v "^--" > $LongOrfs.complete ## 225219
 grep "^>" $LongOrfs.complete | awk -F '[>|]' '{print $2"|"$3}' | sort | uniq | wc -l ## 124271
+while read ID;do echo $ID | sed 's/_/|/'; done < $p_asteroides/UniVec/excludeIDs > $p_asteroides/UniVec/excludeIDs_orig
 while read gene;do grep $gene"|" $LongOrfs; done < <(cat $seqclean_dir/unexpIDs $p_asteroides/UniVec/excludeIDs_orig | sort |uniq) > $LongOrfs.exclude
 grep "type:complete" $LongOrfs.exclude | wc -l ## 810
 grep "type:complete" $LongOrfs.exclude > $LongOrfs.exclude.complete ## 810
