@@ -326,25 +326,86 @@ sed 's/TR\([0-9]*\)|c\([0-9]*\)_g/TR\1_c\2_g/g' $LongOrfs.exp > $LongOrfs.exp2
 cat $p_asteroides/UniVec/excludeIDs | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs.exp2 | sed 's/>//' > LongOrfs.exp2.key
 filter_fasta.py --input_fasta_fp $LongOrfs.exp2 --output_fasta_fp $LongOrfs.exp2.univec --seq_id_fp LongOrfs.exp2.key --negate
 ##################
+## remove the Forgin contamination sequences (FCS). Based on GenBank report
+mkdir -p $p_asteroides/FCS
+cd $p_asteroides/FCS
+# download the NCBI_FCS report
+# creat Trim file from the trim section & creat exclude file from the exclude section & dup from the duplicated sequences section
+cat FCS_report_dup | sed 's/lcl|//g' | awk '{print $1}' > FCS_report_dup_keep
+cat FCS_report_dup | sed 's/lcl|//g' | awk '{i=1; while(i < NF-1) {print $i;i++;}}' | grep -v -F -w -f FCS_report_dup_keep  > FCS_report_dup_exclude
+
+sed -i 's/\.\./\t/g' FCS_report_trim
+cat FCS_report_trim | awk -F '\t' '{if(NF > 5)print $1}' > FCS_report_trim_exclude
+cat FCS_report_trim | awk -F '\t' '(NF == 5) && ($2-$4) < 201 && ($3-1) < 201 {print $1}' >> FCS_report_trim_exclude 
+grep -v -F -w -f FCS_report_trim_exclude FCS_report_trim > FCS_report_trim.keep 
+cat FCS_report_trim.keep | awk '($2-$4) <= ($3-1) {print $1,$3}' | sort -k1,1 -k2,2n | sort -u -k1,1 --merge > suffix_cut ## 571 ## cut from $3-len
+cat FCS_report_trim.keep | awk '($2-$4) > ($3-1) {print $1,$4}' | sort -k1,1 -k2,2nr | sort -u -k1,1 --merge > prefix_cut ## 535 ## cut from 1-$4
+
+module load QIIME/1.8.0
+filter_fasta.py --input_fasta_fp $univec_ann_exp_tran --output_fasta_fp suffix_cut.fa --seq_id_fp suffix_cut
+while read line; do
+  if [[ $line == \>* ]]; then
+    suffix=$(echo $line | awk -F '[> ]' '{print $2}' | grep -w -f - suffix_cut | awk '{print $2}')
+    echo $line;
+  else echo ${line:0:$suffix-1}; fi
+done < suffix_cut.fa > suffix_cut.fa.fixed
+
+while read contig;do mark=$(echo $contig | cut -d" " -f 1); grep $mark suffix_cut.fa.fixed | sed 's/>//';done < prefix_cut > suffix_cut_pass
+filter_fasta.py --input_fasta_fp $univec_ann_exp_tran --output_fasta_fp temp_prefix_cut.fa --seq_id_fp suffix_cut --negate
+filter_fasta.py --input_fasta_fp temp_prefix_cut.fa --output_fasta_fp prefix_cut.1.fa --seq_id_fp prefix_cut
+filter_fasta.py --input_fasta_fp suffix_cut.fa.fixed --output_fasta_fp prefix_cut.2.fa --seq_id_fp suffix_cut_pass
+cat prefix_cut.1.fa prefix_cut.2.fa > prefix_cut.fa
+while read line; do
+  if [[ $line == \>* ]]; then
+    prefix=$(echo $line | awk -F '[> ]' '{print $2}' | grep -w -f - prefix_cut | awk '{print $2}')
+    echo $line;
+  else echo ${line:$prefix}; fi
+done < prefix_cut.fa > prefix_cut.fa.fixed
+
+cat FCS_report_exclude FCS_report_trim FCS_report_dup_exclude > FCS_report_all
+filter_fasta.py --input_fasta_fp $univec_ann_exp_tran --output_fasta_fp ${univec_ann_exp_tran%.UniVec.fasta}.FCS.fasta --seq_id_fp FCS_report_all --negate
+FCS_ann_exp_tran=${univec_ann_exp_tran%.UniVec.fasta}.FCS.fasta
+
+filter_fasta.py --input_fasta_fp suffix_cut.fa.fixed --output_fasta_fp suffix_cut.fa.fixed_final --seq_id_fp suffix_cut_pass --negate
+## remove the annotation from trimmed transcripts
+cat suffix_cut.fa.fixed_final | awk '{print $1}' > suffix_cut.fa.fixed.noAnn
+cat prefix_cut.fa.fixed | awk '{print $1}' > prefix_cut.fa.fixed.noAnn
+cat suffix_cut.fa.fixed.noAnn >> $FCS_ann_exp_tran
+cat prefix_cut.fa.fixed.noAnn >> $FCS_ann_exp_tran
+## trimmed 26 & excluded 1568 from 868830 ==> 867262
+
+## exclude the FCS transcripts from the annoatation files
+cd $seqclean_dir
+grep -v -w -F -f $p_asteroides/FCS/FCS_report_all uniprot_sprot.blastx.outfmt6.sig.best.exp2.univec >  uniprot_sprot.blastx.outfmt6.sig.best.exp2.FCS    ## 204071
+
+cat $p_asteroides/FCS/FCS_report_all | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs.exp2.univec | sed 's/>//' > LongOrfs.exp2.key2
+filter_fasta.py --input_fasta_fp $LongOrfs.exp2.univec --output_fasta_fp $LongOrfs.exp2.FCS --seq_id_fp LongOrfs.exp2.key2 --negate   ## 578372
+##################
 ## Assessement of the transcriptome
 cd $seqclean_dir
 module load Bioperl/1.6.923
 perl ${script_path}/seq_stats.pl $trinity_transcriptome >  $trinity_transcriptome.MatzStat
 perl ${script_path}/seq_stats.pl $exp_transcriptome > $exp_transcriptome.MatzStat
 perl ${script_path}/seq_stats.pl $univec_ann_exp_tran > $univec_ann_exp_tran.MatzStat
+perl ${script_path}/seq_stats.pl $FCS_ann_exp_tran > $FCS_ann_exp_tran.MatzStat
 
 module load trinity/6.0.2
 TrinityStats.pl $trinity_transcriptome >  $trinity_transcriptome.TrinityStat
 TrinityStats.pl $exp_transcriptome > $exp_transcriptome.TrinityStat
 TrinityStats.pl $univec_ann_exp_tran > $univec_ann_exp_tran.TrinityStat
+TrinityStats.pl $FCS_ann_exp_tran > $FCS_ann_exp_tran.TrinityStat
 
 ## calc the the no of Complete ORFs
 #grep "type:complete" $LongOrfs | wc -l  ##225219
 #grep -A1 "type:complete" $LongOrfs | grep -v "^--" > $LongOrfs.complete ## 225219
 #grep "^>" $LongOrfs.complete | awk -F '[>|]' '{print $2"|"$3}' | sort | uniq | wc -l ## 124271
-grep "type:complete" $LongOrfs.exp2.univec | wc -l  ##223844
-grep -A1 "type:complete" $LongOrfs.exp2.univec | grep -v "^--" > $LongOrfs.exp2.univec.complete ## 223844
+grep "type:complete" $LongOrfs.exp2.univec | wc -l  ## 223844
+grep -A1 "type:complete" $LongOrfs.exp2.univec | grep -v "^--" > $LongOrfs.exp2.univec.complete
 grep "^>" $LongOrfs.exp2.univec.complete | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 123425
+
+grep "type:complete" $LongOrfs.exp2.FCS | wc -l  ## 223741
+grep -A1 "type:complete" $LongOrfs.exp2.FCS | grep -v "^--" > $LongOrfs.exp2.FCS.complete 
+grep "^>" $LongOrfs.exp2.FCS.complete | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 123339
 
 ## instaling and running assemblathon2
 #cd ${script_path}
@@ -374,8 +435,14 @@ module load tbl2asn/20150331
 mkdir ${p_asteroides}/ASN
 cd ${p_asteroides}/ASN
 ## download the template.sbt & assembly.cmt
-cat $univec_ann_exp_tran | awk '{print $1}' > allTrans.fsa
-qsub $script_path/createASN.sh
+cat $FCS_ann_exp_tran | awk '{print $1}' > allTrans.fsa
+#cd ~/bin
+#wget ftp://ftp.ncbi.nih.gov/toolbox/ncbi_tools/converters/by_program/tbl2asn/linux64.tbl2asn.gz
+#gunzip linux64.tbl2asn.gz
+#mv linux64.tbl2asn tbl2asn
+#chmod 755 tbl2asn
+tbl2asn -t template.sbt -p. -Y assembly.cmt -M t -j "[organism=Porites astreoides] [moltype=transcribed_RNA] [tech=TSA]"
+#qsub $script_path/createASN.sh
 ##############
 ## copy the assemblies to the other server
 cd ${p_asteroides}/ASN
