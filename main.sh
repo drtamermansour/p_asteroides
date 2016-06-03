@@ -182,25 +182,27 @@ echo "transcript"$'\t'"length" > transcripts.lengthes
 sf=$(find ./*.quant -name \*.sf | head -n1)
 cat $sf | grep -v "^#" | awk -F "\t" -v OFS='\t' '{print $1,$2}' >> transcripts.lengthes
 
-module load R/3.0.1
+#module load R/3.0.1
 while read identifier;do
   echo $(pwd) $identifier
-  Rscript ${script_path}/calcTPM_tis.R "$(pwd)" "$identifier" "transcripts.lengthes" "$gene_transcript_map" >> targets_list
+  bash $script_path/run_calcTPM.sh "$(pwd)" "$identifier" "transcripts.lengthes" "$gene_transcript_map" ${script_path}/calcTPM2.R
+  #Rscript ${script_path}/calcTPM_tis.R "$(pwd)" "$identifier" "transcripts.lengthes" "$gene_transcript_map" >> targets_list
 done < $identifiers
 bash $script_path/abund_est.sh
 
-## exclude the unexpressed transcripts from the annoatation files
+## exclude the unexpressed transcripts from the transcriptome
 cd $seqclean_dir
+module load QIIME/1.8.0
+filter_fasta.py --input_fasta_fp $trinity_transcriptome --output_fasta_fp Trinity.clean.201.exp.fasta --seq_id_fp $p_asteroides/c_abundFilter/unexp_isoformTPM --negate
+exp_transcriptome=$seqclean_dir/Trinity.clean.201.exp.fasta        ## 868905
+echo $(($(grep "^>" Trinity.fasta.clean.201 | wc -l) - $(grep "^>" Trinity.clean.201.exp.fasta | wc -l))) ## 11380
+
+## exclude the unexpressed transcripts from the annoatation files
 comm -12 <(cat $seqclean_dir/uniprot_sprot.blastx.outfmt6.sig.best | tail -n+2 | awk '{print $1}' |sort) <(cat $p_asteroides/c_abundFilter/unexp_isoformTPM | awk '{print $1}' | sort) > unexpIDs  ## 2657
 grep -v -w -F -f unexpIDs uniprot_sprot.blastx.outfmt6.sig.best >  uniprot_sprot.blastx.outfmt6.sig.best.exp                      ## 204124
 
 head -n1 uniprot_sprot.blastx.outfmt6.sig.best > uniprot_sprot.blastx.outfmt6.sig.best.unexp
 grep -w -F -f unexpIDs uniprot_sprot.blastx.outfmt6.sig.best >>  uniprot_sprot.blastx.outfmt6.sig.best.unexp                    ## 2657
-## exclude the unexpressed transcripts from the transcriptome
-module load QIIME/1.8.0
-filter_fasta.py --input_fasta_fp $trinity_transcriptome --output_fasta_fp Trinity.clean.201.exp.fasta --seq_id_fp $p_asteroides/c_abundFilter/unexp_isoformTPM --negate
-exp_transcriptome=$seqclean_dir/Trinity.clean.201.exp.fasta        ## 868905
-echo $(($(grep "^>" Trinity.fasta.clean.201 | wc -l) - $(grep "^>" Trinity.clean.201.exp.fasta | wc -l))) ## 11380
 
 tail -n+2 $p_asteroides/c_abundFilter/unexp_isoformTPM | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs | sed 's/>//' > LongOrfs.key
 filter_fasta.py --input_fasta_fp $LongOrfs --output_fasta_fp $LongOrfs.exp --seq_id_fp LongOrfs.key --negate
@@ -317,20 +319,23 @@ cat suffix_cut.fa.fixed_final >> $univec_ann_exp_tran
 cat prefix_cut.fa.fixed >> $univec_ann_exp_tran
 ## trimmed 1106 & excluded 75 from 868905 ==> 868830
 
-## exclude the univec transcripts from the annoatation files
+## Remove special characters from trinity gene names & exclude the univec transcripts from the annoatation files
 cd $seqclean_dir
 while read line;do echo $line | sed 's/|/_/'; done < uniprot_sprot.blastx.outfmt6.sig.best.exp > uniprot_sprot.blastx.outfmt6.sig.best.exp2
+sed 's/^TR\(.*\)|c/TR\1_c/g' uniprot_sprot.blastx.outfmt6.sig.best.exp > uniprot_sprot.blastx.outfmt6.sig.best.exp2
 grep -v -w -F -f $p_asteroides/UniVec/excludeIDs uniprot_sprot.blastx.outfmt6.sig.best.exp2 >  uniprot_sprot.blastx.outfmt6.sig.best.exp2.univec    ## 204110
 
 sed 's/TR\([0-9]*\)|c\([0-9]*\)_g/TR\1_c\2_g/g' $LongOrfs.exp > $LongOrfs.exp2
 cat $p_asteroides/UniVec/excludeIDs | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs.exp2 | sed 's/>//' > LongOrfs.exp2.key
 filter_fasta.py --input_fasta_fp $LongOrfs.exp2 --output_fasta_fp $LongOrfs.exp2.univec --seq_id_fp LongOrfs.exp2.key --negate
+
+sed 's/|/_/g' $gene_transcript_map > $gene_transcript_map.2
 ##################
 ## remove the Forgin contamination sequences (FCS). Based on GenBank report
 mkdir -p $p_asteroides/FCS
 cd $p_asteroides/FCS
 # download the NCBI_FCS report
-# creat Trim file from the trim section & creat exclude file from the exclude section & dup from the duplicated sequences section
+# creat FCS_report_trim file from the trim section & FCS_report_exclude file from the exclude section & dup from the duplicated sequences section
 cat FCS_report_dup | sed 's/lcl|//g' | awk '{print $1}' > FCS_report_dup_keep
 cat FCS_report_dup | sed 's/lcl|//g' | awk '{i=1; while(i < NF-1) {print $i;i++;}}' | grep -v -F -w -f FCS_report_dup_keep  > FCS_report_dup_exclude
 
@@ -373,6 +378,7 @@ cat prefix_cut.fa.fixed | awk '{print $1}' > prefix_cut.fa.fixed.noAnn
 cat suffix_cut.fa.fixed.noAnn >> $FCS_ann_exp_tran
 cat prefix_cut.fa.fixed.noAnn >> $FCS_ann_exp_tran
 ## trimmed 26 & excluded 1568 from 868830 ==> 867262
+## trimmed another 2 & excluded 7 from 867262 ==> 867255
 
 ## exclude the FCS transcripts from the annoatation files
 cd $seqclean_dir
@@ -380,6 +386,8 @@ grep -v -w -F -f $p_asteroides/FCS/FCS_report_all uniprot_sprot.blastx.outfmt6.s
 
 cat $p_asteroides/FCS/FCS_report_all | awk '{print ">"$1"|"}' | grep -F -f - $LongOrfs.exp2.univec | sed 's/>//' > LongOrfs.exp2.key2
 filter_fasta.py --input_fasta_fp $LongOrfs.exp2.univec --output_fasta_fp $LongOrfs.exp2.FCS --seq_id_fp LongOrfs.exp2.key2 --negate   ## 578372
+
+grep "^>" $FCS_ann_exp_tran | awk -F '[> ]' '{print $2}' | grep -w -F -f - $gene_transcript_map.2 > $gene_transcript_map.3
 ##################
 ## Assessement of the transcriptome
 cd $seqclean_dir
