@@ -1,12 +1,12 @@
 ## compare the new Assembly with the older assembly
-## convert the old assembly to trinity format (edit the Ctr+v,tab at coomand line)
+## convert the old assembly to trinity format 
 cd $p_asteroides/data
-cat Porites.Astreoides.uniprot2013.fa | awk '/^>/ {if(N>0) printf("\n"); printf("%s ",$0);N++;next;} {printf("%s",$0);} END {if(N>0) printf("\n");}' | awk '{print ">",$(NF-1),"\t",$(NF-4),"\t",$NF}' | sed 's/> tr=/>TR1|c1_g/;s/Ctr+v,tab/_i/;s/_of_[0-9]*_in_tr[0-9]*//' | sed 's/[ ]*//g' | tr "\t" "\n"  | fold -w 60 > Porites.Astreoides.uniprot2013.trinformat.fasta
+cat Porites.Astreoides.uniprot2013.fa | awk '/^>/ {if(N>0) printf("\n"); printf("%s ",$0);N++;next;} {printf("%s",$0);} END {if(N>0) printf("\n");}' | awk '{print ">",$(NF-1),$(NF-4),$NF}' | sed 's/> tr=/>TR1|c1_g/;s/ /_i/;s/_of_[0-9]*_in_tr[0-9]*//' | tr " " "\n"  | fold -w 60 > Porites.Astreoides.uniprot2013.trinformat.fasta
 ## run SeqClean on the old Assembly
 seqclean Porites.Astreoides.uniprot2013.trinformat.fasta
 ## I will ignore fitering the old assembly to remove short ests
-## get the longest isoform from the old assembly (edit the Ctr+v,tab at coomand line)
-cat Porites.Astreoides.uniprot2013.trinformat.fasta.clean | awk '/^>/ {if(N>0) printf("\n"); printf("%s\t",$0);N++;next;} {printf("%s",$0);} END {if(N>0) printf("\n");}' | sed 's/_i/_i\t/' | awk -F $'\t'  '{printf("%s\t%d\n",$0,length($3));}' | sort -t $'\t' -k1,1 -k4,4nr | sort -t $'\t' -k1,1 -u -s | sed 's/Ctr+v,tab/./' | cut -f 1,2 |tr "\t" "\n" | fold -w 60 > Porites.Astreoides.uniprot2013.trinformat.fasta.clean.longest
+## get the longest isoform from the old assembly
+cat Porites.Astreoides.uniprot2013.trinformat.fasta.clean | awk '/^>/ {if(N>0) printf("\n"); printf("%s ",$0);N++;next;} {printf("%s",$0);} END {if(N>0) printf("\n");}' | sed 's/_i/_i /' | awk '{printf("%s %d\n",$0,length($3));}' | sort -k1,1 -k4,4nr | sort -k1,1 -u -s | sed 's/ /./' | cut -d" " -f 1,2 | tr " " "\n" | fold -w 60 > Porites.Astreoides.uniprot2013.trinformat.fasta.clean.longest
 module load Bioperl/1.6.923
 perl ${script_path}/seq_stats.pl $data_path/Porites.Astreoides.uniprot2013.trinformat.fasta.clean > $data_path/Porites.Astreoides.uniprot2013.trinformat.fasta.clean.MatzStat
 module load trinity/6.0.2
