@@ -404,16 +404,11 @@ TrinityStats.pl $univec_ann_exp_tran > $univec_ann_exp_tran.TrinityStat
 TrinityStats.pl $FCS_ann_exp_tran > $FCS_ann_exp_tran.TrinityStat
 
 ## calc the the no of Complete ORFs
-#grep "type:complete" $LongOrfs | wc -l  ##225219
-#grep -A1 "type:complete" $LongOrfs | grep -v "^--" > $LongOrfs.complete ## 225219
-#grep "^>" $LongOrfs.complete | awk -F '[>|]' '{print $2"|"$3}' | sort | uniq | wc -l ## 124271
-grep "type:complete" $LongOrfs.exp2.univec | wc -l  ## 223844
-grep -A1 "type:complete" $LongOrfs.exp2.univec | grep -v "^--" > $LongOrfs.exp2.univec.complete
-grep "^>" $LongOrfs.exp2.univec.complete | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 123425
-
-grep "type:complete" $LongOrfs.exp2.FCS | wc -l  ## 223741
 grep -A1 "type:complete" $LongOrfs.exp2.FCS | grep -v "^--" > $LongOrfs.exp2.FCS.complete 
-grep "^>" $LongOrfs.exp2.FCS.complete | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 123339
+grep "^>" $LongOrfs.exp2.FCS | wc -l ## 578372 ## no of all possible ORF
+grep "^>" $LongOrfs.exp2.FCS | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 327829 ## no of transcripts with ORF
+grep "^>" $LongOrfs.exp2.FCS.complete | wc -l ## 223741 ## no of all possible complete ORF
+grep "^>" $LongOrfs.exp2.FCS.complete | awk -F '[>|]' '{print $2}' | sort | uniq | wc -l ## 123339 ## no of transcripts with complete ORF
 
 ## instaling and running assemblathon2
 #cd ${script_path}
